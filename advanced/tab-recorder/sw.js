@@ -14,12 +14,17 @@ async function badge(text, colour) {
 }
 
 async function ensureOffscreen() {
-  if (chrome.offscreen.hasDocument && (await chrome.offscreen.hasDocument())) return;
-  await chrome.offscreen.createDocument({
-    url: "offscreen.html",
-    reasons: ["USER_MEDIA"],
-    justification: "Record one tab's audio to a file",
-  });
+  try {
+    if (chrome.offscreen.hasDocument && (await chrome.offscreen.hasDocument())) return;
+    await chrome.offscreen.createDocument({
+      url: "offscreen.html",
+      reasons: ["USER_MEDIA"],
+      justification: "Record one tab's audio to a file",
+    });
+  } catch (e) {
+    // "Only a single offscreen document may be created" is success for us.
+    if (!String(e).includes("single offscreen")) throw e;
+  }
 }
 
 async function start(tabId) {
@@ -53,7 +58,8 @@ async function stop() {
   if (id === null) return;
   await chrome.storage.session.set({ target: null });
   const res = await chrome.runtime.sendMessage({ target: "offscreen", type: "stop" }).catch(() => null);
-  await badge(res && res.bytes ? "OK" : "0", res && res.bytes ? "#166534" : "#7f1d1d");
+  const label = !res ? "LOST" : res.bytes ? "OK" : "EMPTY";
+  await badge(label, label === "OK" ? "#166534" : "#7f1d1d");
   setTimeout(() => badge(""), 8000);
 }
 

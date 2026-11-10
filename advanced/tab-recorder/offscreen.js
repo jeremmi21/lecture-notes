@@ -22,12 +22,22 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   }
 });
 
+let frames = 0;
+let firstFrameAt = 0;
+
 async function start(streamId, filename, startedIso) {
   await stop();
-  stream = await navigator.mediaDevices.getUserMedia({
-    audio: { mandatory: { chromeMediaSource: "tab", chromeMediaSourceId: streamId } },
-    video: false,
-  });
+  frames = 0;
+  firstFrameAt = 0;
+  const tabSource = { mandatory: { chromeMediaSource: "tab", chromeMediaSourceId: streamId } };
+  try {
+    // Audio-only is cheapest, but is not documented for the getUserMedia path.
+    stream = await navigator.mediaDevices.getUserMedia({ audio: tabSource, video: false });
+  } catch (e) {
+    // Documented samples pass the same constraint for both; the recorder still
+    // writes audio only, because its mimeType is audio.
+    stream = await navigator.mediaDevices.getUserMedia({ audio: tabSource, video: tabSource });
+  }
   // Capturing a tab reroutes its audio, so play it back or the user goes deaf.
   ctx = new AudioContext();
   ctx.createMediaStreamSource(stream).connect(ctx.destination);
@@ -40,7 +50,11 @@ async function start(streamId, filename, startedIso) {
     audioBitsPerSecond: 64000,
   });
   rec.ondataavailable = (e) => {
-    if (e.data && e.data.size) chunks.push(e.data);
+    if (e.data && e.data.size) {
+      chunks.push(e.data);
+      if (!firstFrameAt) firstFrameAt = Date.now();
+      frames++;
+    }
   };
   rec.start(1000);
 }
@@ -48,9 +62,12 @@ async function start(streamId, filename, startedIso) {
 async function stop() {
   if (!rec) return { ok: true, bytes: 0 };
   const name = current;
-  const ended = new Promise((res) => (rec.onstop = res));
+  const ended = new Promise((res) => {
+    rec.onstop = res;
+    rec.onerror = res;  // without this a broken recorder leaves the promise pending
+  });
   rec.stop();
-  await ended;
+  await Promise.race([ended, new Promise((r) => setTimeout(r, 3000))]);
   if (stream) stream.getTracks().forEach((t) => t.stop());
   if (ctx) {
     await ctx.close();
@@ -104,7 +121,7 @@ function snapshot() {
     bytes: counting ? chunks.reduce((n, b) => n + b.size, 0) : 0,
     level,
     file: current ? { name: current, bytesWritten: chunks.reduce((n, b) => n + b.size, 0) } : null,
-    needs: [],
+    needs: !rec ? [] : !firstFrameAt && Date.now() - startedAt > 3000 ? ["no-audio"] : [],
     lastError: failing,
   };
 }

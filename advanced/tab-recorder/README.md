@@ -4,6 +4,32 @@ Records **one tab's** audio while leaving other tabs audible. This is what the
 main pipeline cannot do: WASAPI loopback records the output mix, so a video
 playing in another tab lands in the lecture file.
 
+## Status: unverified, and the audit says why
+
+A code audit ranked the defects that could each produce v1's zero bytes. The
+verdict was "undecidable without a browser", with the strongest reason being
+that v1.1 left the capture half byte-identical to v1 while only changing the
+sink — so the part that actually failed is still unproven.
+
+Fixed after the audit:
+
+| Defect | Fix |
+|---|---|
+| Audio-only tab capture may be rejected on the `getUserMedia` path | try audio-only, fall back to passing the same tab constraint for video |
+| `stop()` could hang forever, leaving the badge on `REC` and the tab muted | `onerror` plus a 3 s race |
+| No way to tell "recording" from "no audio is arriving" | `needs: ["no-audio"]` after 3 s with zero frames |
+| A lost offscreen document was reported as a zero-byte recording | badge `LOST` vs `EMPTY` |
+| `hasDocument` may be newer than the stated minimum version | `createDocument` tolerates "single offscreen document" |
+
+Still open, both certain and both listed in `PLAN.md`:
+
+- **A6.** The whole recording is held in RAM until `stop()`. An extension reload
+  or browser crash yields nothing rather than a truncated file. Fix is writing
+  each chunk to a `FileSystemWritableFileStream`.
+- **A4.** Anchor-click downloads are rate-limited per origin without user
+  activation, so the second recording of a session may be silently blocked while
+  the badge still reads `OK`. Fix is reading back `chrome.downloads` state.
+
 ## Status: unverified
 
 Version 1.0 was loaded into Brave with `tabCapture`, `offscreen`, `downloads`
