@@ -25,6 +25,31 @@ Version 1.1 changes the two things most likely to have caused that:
 Neither change has been confirmed in a browser. Treat it as an experiment until
 a file appears.
 
+## Control it from a terminal
+
+```powershell
+python tools/tabrec.py serve            # daemon on 127.0.0.1:8765
+python tools/tabrec.py status [--json]
+python tools/tabrec.py start [--tab ID]
+python tools/tabrec.py stop
+python tools/tabrec.py watch            # NDJSON, one line per state change
+```
+
+The extension holds one Server-Sent Events stream to the daemon for commands and
+posts its state back, so there is no dependency beyond the standard library.
+Exit codes: 0 ok, 3 daemon down, 4 extension disconnected, 5 command rejected.
+
+The daemon is stateless: restart it mid-lecture and it rebuilds from the
+extension's next update. The recorder keeps running because the sink is local.
+
+**One hard limit:** `tabCapture` needs a user gesture on the target tab, so the
+CLI cannot start an arbitrary tab. Click the toolbar icon (or press the
+`chrome.commands` key) to make the gesture; the CLI can then stop, query and
+take over the sink.
+
+Design notes, including seven defects found in the recorder itself, are in
+`PLAN.md`.
+
 ## Install
 
 1. `brave://extensions` (or `chrome://extensions`)
