@@ -1,0 +1,35 @@
+{
+  "lecture": {
+    "id": "course-YYYY-MM-DD",
+    "course": "Course name",
+    "date": "YYYY-MM-DD",
+    "duration_s": 0,
+    "source": "transcript.json",
+    "model": "small int8, beam 5",
+    "notes": "Free text. Anything uncertain about this recording goes here."
+  },
+  "nodes": [
+    { "id": "t.first", "type": "topic", "label": "First topic of the lecture", "start": 0, "end": 600 },
+    { "id": "t.second", "type": "topic", "label": "Second topic of the lecture", "start": 600, "end": 1200 },
+
+    { "id": "r.first.1", "type": "rule", "topic": "t.first", "label": "One statement the lecturer made, in a single sentence.", "start": 42 },
+    { "id": "r.first.2", "type": "rule", "topic": "t.first", "label": "A second statement, with the offset where it was said.", "start": 128 },
+
+    { "id": "r.second.1", "type": "rule", "topic": "t.second", "label": "A rule that belongs to the second topic.", "start": 640 },
+
+    { "id": "c.example", "type": "case", "label": "Example v Example", "cited_as": "example versus example", "facts": "What happened, as the lecturer told it. Keep the names as spoken and mark them unverified if unsure.", "holding": "What the court held, as it was taught.", "start": 300 }
+  ],
+  "edges": [
+    { "from": "c.example", "to": "r.first.1", "type": "illustrates" },
+    { "from": "r.first.2", "to": "r.first.1", "type": "qualified_by" }
+  ],
+  "unverified": [
+    "Any statute or case name that did not appear verbatim in the transcript"
+  ],
+  "contaminated": [
+    { "start": 0, "end": 0, "note": "Unrelated audio inside the recording. Delete this entry when there is none." }
+  ],
+  "excluded": [
+    { "start": 0, "end": 0, "note": "Housekeeping that is not lecture content. Delete this entry when there is none." }
+  ]
+}
