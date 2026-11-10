@@ -3,7 +3,20 @@
   "name": "Tab Lecture Recorder",
   "version": "1.1",
   "description": "Record one tab's audio, keep it audible, and follow the target tab. Experimental.",
-  "permissions": ["tabCapture", "offscreen", "tabs", "storage"],
-  "background": { "service_worker": "sw.js" },
-  "action": { "default_title": "Record this tab / stop" }
+  "permissions": [
+    "tabCapture",
+    "offscreen",
+    "tabs",
+    "storage"
+  ],
+  "background": {
+    "service_worker": "sw.js"
+  },
+  "action": {
+    "default_title": "Record this tab / stop"
+  },
+  "minimum_chrome_version": "116",
+  "host_permissions": [
+    "http://127.0.0.1/*"
+  ]
 }

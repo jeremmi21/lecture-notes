@@ -87,6 +87,21 @@ chrome.tabs.onUpdated.addListener(async (id, info) => {
 });
 
 chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
+  // The offscreen document cannot call tabCapture itself, so the daemon's
+  // "start" command routes through here. NOTE: this needs a user gesture on
+  // the target tab; without one Chrome rejects the call, which is why the CLI
+  // cannot start an arbitrary tab.
+  if (msg && msg.type === "need-stream") {
+    chrome.tabCapture
+      .getMediaStreamId({ targetTabId: msg.tabId })
+      .then((streamId) => {
+        const startedAt = new Date().toISOString();
+        const stamp = startedAt.replace(/[:.]/g, "-").slice(0, 19);
+        reply({ ok: true, streamId, startedAt, filename: `tab-${stamp}.webm` });
+      })
+      .catch((e) => reply({ ok: false, error: String(e) }));
+    return true;
+  }
   if (!msg || msg.type !== "saved") return;
   console.log("saved", msg.meta);
   chrome.storage.local.get("recordings").then(({ recordings = [] }) => {

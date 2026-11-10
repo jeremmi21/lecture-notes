@@ -85,3 +85,78 @@ async function stop() {
   await chrome.runtime.sendMessage({ type: "saved", meta }).catch(() => {});
   return { ok: true, bytes };
 }
+
+// ---------------------------------------------------------------------------
+// Control plane: talk to tools/tabrec.py over loopback.
+// Server-Sent Events for commands (GET /events), POST for state.
+// ---------------------------------------------------------------------------
+
+const DAEMON = "http://127.0.0.1:8765";
+let counting = false;
+let level = 0;
+let failing = null;
+
+function snapshot() {
+  return {
+    extVersion: chrome.runtime.getManifest().version,
+    recording: !!rec,
+    startedAt,
+    bytes: counting ? chunks.reduce((n, b) => n + b.size, 0) : 0,
+    level,
+    file: current ? { name: current, bytesWritten: chunks.reduce((n, b) => n + b.size, 0) } : null,
+    needs: [],
+    lastError: failing,
+  };
+}
+
+function push() {
+  fetch(`${DAEMON}/ext/state`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(snapshot()),
+  }).catch(() => {});
+}
+
+async function handleCommand(cmd, args) {
+  if (cmd === "stop") {
+    const r = await stop();
+    await chrome.runtime.sendMessage({ type: "cmd-result", cmd, ok: true, bytes: r.bytes }).catch(() => {});
+    push();
+    return;
+  }
+  if (cmd === "start") {
+    // A stream can only be obtained by the service worker, and only with a
+    // gesture on that tab. The daemon cannot supply the gesture.
+    const reply = await chrome.runtime.sendMessage({ type: "need-stream", tabId: args.tabId }).catch((e) => ({
+      ok: false,
+      error: String(e),
+    }));
+    if (!reply || !reply.ok) {
+      failing = reply && reply.error ? reply.error : "no stream";
+      push();
+      return;
+    }
+    await start(reply.streamId, reply.filename, reply.startedAt);
+    push();
+  }
+}
+
+function connect() {
+  const es = new EventSource(`${DAEMON}/events`);
+  es.onmessage = (m) => {
+    try {
+      const state = JSON.parse(m.data);
+      if (state.pending && state.pending.cmd) handleCommand(state.pending.cmd, state.pending.args || {});
+    } catch (e) {
+      /* malformed frame: ignore */
+    }
+  };
+  es.onerror = () => {
+    es.close();
+    setTimeout(connect, 3000);
+  };
+}
+
+connect();
+push();
+setInterval(push, 5000);
