@@ -72,6 +72,17 @@ Read the transcript in full and write `<lecture>/graph.json` following
   transcript. The recogniser mangles proper names and a timestamp makes a wrong
   name look authoritative.
 
+### 3b. Slides, if you captured any
+
+```powershell
+.\.venv\Scripts\python.exe tools\sync_slides.py lectures\<date>-<course>
+```
+
+Matches frames to lecture offsets through the two wall-clock anchors
+(`*.wav.meta.json` and `slides/started.txt`) and writes `slides.index.json`,
+saying which frames fall inside each topic. It refuses when a marker is missing
+rather than guessing. Never state which slide was up without this file.
+
 ### 4. Render notes
 
 ```powershell

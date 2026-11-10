@@ -54,6 +54,33 @@ mklink /J "%USERPROFILE%\.agents\skills\lecture-notes" "%CD%"
 
 `SKILL.md` is the agent-facing version of the same instructions.
 
+## Slides and audio on one clock
+
+Slides are only useful if you can say which slide was up at 42:10. Two captures
+running in parallel have to agree on time, so both write a wall-clock anchor:
+
+```
+lecture.wav.meta.json     started_at, written by record_loopback.py at start
+slides/started.txt        ISO time, written by winshot.py when the loop starts
+slides/pres-NNNNN.jpg     frame N is N seconds after started.txt
+```
+
+Then:
+
+```powershell
+.\.venv\Scripts\python.exe tools\sync_slides.py lectures\<id>
+```
+
+It refuses when a marker is missing rather than guessing an offset, and writes
+`slides.index.json`: the skew between the two starts, and which frames fall
+inside each topic of the graph. A frame is `skew + N` seconds into the lecture,
+which is the same axis as `mm:ss` in the transcript.
+
+This is the honest part of the story: the clock is solved, the capture is not.
+`winshot.py` only returns a usable frame while the presentation window is
+visible — `PrintWindow` returns blank for a covered Chromium window, and a
+minimised one returns nothing at all.
+
 ## The graph is the artifact
 
 `notes.md` is generated. Correct the graph and re-render; never edit the note.
@@ -86,8 +113,11 @@ printed at the bottom of the note.
 ```
 SKILL.md                  agent instructions
 advanced/README.md        optional: speaker labels, faster engine
+advanced/tab-recorder/    experimental: one tab's audio, unverified
 tools/record_loopback.py  WASAPI loopback recorder, follows the output device
 tools/render_notes.py     graph.json -> notes.md
+tools/sync_slides.py      slide frames -> lecture offsets, per topic
+tools/winshot.py          optional: grab a window every N seconds
 templates/graph.example.json  placeholder graph, no real lecture content
 templates/graph.schema.md     every field, what it means, why it exists
 requirements.txt          pinned; unpinned versions break on this platform

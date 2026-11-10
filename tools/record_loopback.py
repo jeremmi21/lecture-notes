@@ -27,6 +27,7 @@ to matter.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import threading
 import time
@@ -105,6 +106,15 @@ def main() -> int:
     base_ch = max(1, int(dev["maxInputChannels"]))
     out = args.out or Path("audio") / f"rec-{datetime.now():%Y%m%d-%H%M%S}.wav"
     out.parent.mkdir(parents=True, exist_ok=True)
+
+    # Wall-clock anchor: slide frames are matched to transcript offsets through it.
+    out.with_suffix(out.suffix + ".meta.json").write_text(json.dumps({
+        "started_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "device": dev["name"],
+        "rate": base_rate,
+        "channels": base_ch,
+        "file": out.name,
+    }, indent=1), encoding="utf-8")
 
     w = wave.open(str(out), "wb")
     w.setnchannels(base_ch)
